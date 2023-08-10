@@ -1,11 +1,12 @@
 {
-  "name": "@kennylindahl/malicious-npm-package",
-  "version": "1.0.6",
+  "name": "@kennylindahl/security-research",
+  "version": "1.0.0",
   "main": "index.js",
   "scripts": {
     "publish": "npm publish --access public",
     "receive-report": "node receive-report.js",
-    "use-module-test": "node use-module-test.js"
+    "use-module-test": "node use-module-test.js",
+    "run:docker": "docker build --no-cache -t my-image . && docker rm -f my-container && docker run -d --name my-container my-image"
   },
   "author": "",
   "license": "ISC",
